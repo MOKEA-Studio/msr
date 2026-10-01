@@ -16,7 +16,7 @@ public final class ReleaseCommand {
     public static void register(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(literal("msr")
                 .then(literal("update").executes(context -> {
-                    ReleaseUpdater.startCheck(true);
+                    ReleaseUpdater.manualCheck();
                     return 1;
                 })));
     }

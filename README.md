@@ -20,6 +20,8 @@ This scaffold registers no content yet. Add registrations in `src/main/java/kr/m
 
 ## GitHub Releases and automatic updates
 
-A tag matching `mod_version` (for example `v0.1.1`) builds and publishes a GitHub Release. The client checks the latest public release at startup. A newer stable `msr-<version>.jar` is downloaded and SHA-256 verified, then installed after Minecraft closes. Restart Minecraft to use it. The updater is skipped in development runs and on dedicated servers.
+A tag matching `mod_version` (for example `v0.1.2`) builds and publishes a GitHub Release. The client checks the latest public release at startup. A newer stable `msr-<version>.jar` is downloaded and SHA-256 verified, then installed after Minecraft closes. Restart Minecraft to use it. The updater is skipped in development runs and on dedicated servers.
 
 Run `/msr update` in game to check and download immediately. Automatic checks also run at client startup. Updates are installed after Minecraft closes and take effect on the next launch.
+
+On dedicated servers, the same startup check runs automatically. Server operators can enter `/msr update` in the server console or in game. The downloaded JAR is installed after the server stops and is active on the next start.
