@@ -1,6 +1,6 @@
 # MSR
 
-Minecraft 1.21.1 / NeoForge mod scaffold with a required Create dependency.
+Minecraft 1.21.1 / NeoForge mod with a required Create dependency, economy, and chunk estates.
 
 ## Requirements
 
@@ -16,12 +16,20 @@ Minecraft 1.21.1 / NeoForge mod scaffold with a required Create dependency.
 
 The built JAR is placed in `build/libs/`. Install Create 6.0.10 or a compatible 6.0.x release alongside this mod. The mod ID is `msr`; change it consistently in `gradle.properties` and `MsrMod.java` if needed.
 
-This scaffold registers no content yet. Add registrations in `src/main/java/kr/mokea/msr/`.
-
 ## GitHub Releases and automatic updates
 
-A tag matching `mod_version` (for example `v0.1.2`) builds and publishes a GitHub Release. The client checks the latest public release at startup. A newer stable `msr-<version>.jar` is downloaded and SHA-256 verified, then installed after Minecraft closes. Restart Minecraft to use it. The updater is skipped in development runs and on dedicated servers.
+A tag matching `mod_version` (for example `v0.2.0`) builds and publishes a GitHub Release. Clients and dedicated servers check the latest public release at startup. A newer stable `msr-<version>.jar` is downloaded and SHA-256 verified, then installed after the game or server closes. Restart to use it. Run `/msr update` in game or from the dedicated server console to check immediately. Automatic replacement is skipped in Gradle development runs.
 
-Run `/msr update` in game to check and download immediately. Automatic checks also run at client startup. Updates are installed after Minecraft closes and take effect on the next launch.
+## Economy and estates
 
-On dedicated servers, the same startup check runs automatically. Server operators can enter `/msr update` in the server console or in game. The downloaded JAR is installed after the server stops and is active on the next start.
+Press **G** in game to open the custom estate dashboard. The server stores balances and owned chunks in the world save, so the GUI shows server-authoritative data.
+
+| Inventory item | Sale price per ingot |
+| --- | ---: |
+| Iron ingot | 1,000 won |
+| Gold ingot | 5,000 won |
+| Netherite ingot | 100,000 won |
+
+Each sale button sells **all** ingots of that type in the player's inventory. The current chunk costs **100,000 won** to claim. The dashboard shows its dimension, coordinates, owner, your balance, and number of owned chunks. Releasing a chunk does not refund the purchase price and requires a second click within five seconds.
+
+Other players cannot break, place, or interact with blocks in a claimed chunk. Explosions cannot destroy claimed blocks; pistons and fluid block placement cannot cross ownership boundaries. Operators with permission level 2 may edit any chunk. Claims apply to all dimensions and persist across server restarts.
