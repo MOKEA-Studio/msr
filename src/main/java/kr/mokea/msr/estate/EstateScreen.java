@@ -63,7 +63,7 @@ public final class EstateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        renderBackground(g, mouseX, mouseY, partialTick);
+        g.fill(0, 0, width, height, 0x4207121D); // Keep the world sharp behind the dashboard.
         int w = Math.min(390, width - 18);
         int h = Math.min(226, height - 10);
         int x = (width - w) / 2;
@@ -101,7 +101,7 @@ public final class EstateScreen extends Screen {
         boolean mine = state != null && state.ownedByYou();
         drawButton(g, x + 12, actionY, (inner - 8) / 2, 25, unclaimed ? "청크 구매 · 100,000원" : mine ? (System.currentTimeMillis() < releaseArmedUntil ? "다시 눌러 해제 확인" : "소유권 해제") : "구매 불가",
                 mouseX, mouseY, (unclaimed || mine) ? CYAN : 0xFF506174, unclaimed || mine);
-        drawButton(g, x + 20 + (inner - 8) / 2, actionY, (inner - 8) / 2, 25, "정보 새로고침",
+        drawButton(g, x + 20 + (inner - 8) / 2, actionY, (inner - 8) / 2, 25, "소유 청크 지도",
                 mouseX, mouseY, 0xFF5A91BC, true);
 
         int sellY = actionY + 31;
@@ -126,13 +126,10 @@ public final class EstateScreen extends Screen {
     }
 
     private void drawMap(GuiGraphics g, int x, int y) {
-        g.fill(x, y, x + 43, y + 36, 0xFF36566A);
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 4; col++) {
-                int color = (row == 1 && col == 1) ? CYAN : ((row + col) % 2 == 0 ? 0xFF476479 : 0xFF3B566B);
-                g.fill(x + 2 + col * 10, y + 2 + row * 11, x + 10 + col * 10, y + 11 + row * 11, color);
-            }
-        }
+        int cx = state == null ? 0 : state.chunkX();
+        int cz = state == null ? 0 : state.chunkZ();
+        String dimension = state == null ? "" : state.dimension();
+        EstateClientVisuals.drawGrid(g, x + 2, y + 4, 5, 7, dimension, cx, cz);
     }
 
     private void drawButton(GuiGraphics g, int x, int y, int w, int h, String label,
@@ -172,7 +169,7 @@ public final class EstateScreen extends Screen {
                     return true;
                 }
             }
-        } else if (inside(mx, my, x + 20 + half, actionY, half, 25)) request("status");
+        } else if (inside(mx, my, x + 20 + half, actionY, half, 25)) minecraft.setScreen(new EstateMapScreen(this));
         else if (inside(mx, my, x + 12, sellY, sellW, 25)) request("sell_iron");
         else if (inside(mx, my, x + 18 + sellW, sellY, sellW, 25)) request("sell_gold");
         else if (inside(mx, my, x + 24 + sellW * 2, sellY, sellW, 25)) request("sell_netherite");

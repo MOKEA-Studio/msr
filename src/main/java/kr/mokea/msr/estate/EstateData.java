@@ -6,6 +6,8 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -70,6 +72,24 @@ public final class EstateData extends SavedData {
 
     public int claimCount(UUID player) {
         return (int) claims.values().stream().filter(c -> c.owner().equals(player)).count();
+    }
+
+    public List<EstateClaimsPayload.Chunk> ownedChunks(UUID player, String dimension) {
+        String prefix = dimension + ":";
+        List<EstateClaimsPayload.Chunk> result = new ArrayList<>();
+        for (var entry : claims.entrySet()) {
+            if (!entry.getValue().owner().equals(player) || !entry.getKey().startsWith(prefix)) continue;
+            if (result.size() >= EstateClaimsPayload.MAX_CHUNKS) break;
+            String coordinates = entry.getKey().substring(prefix.length());
+            int separator = coordinates.indexOf(':');
+            if (separator < 0) continue;
+            try {
+                result.add(new EstateClaimsPayload.Chunk(
+                        Integer.parseInt(coordinates.substring(0, separator)),
+                        Integer.parseInt(coordinates.substring(separator + 1))));
+            } catch (NumberFormatException ignored) {}
+        }
+        return List.copyOf(result);
     }
 
     public Claim claim(String key) {

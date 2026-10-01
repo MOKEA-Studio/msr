@@ -48,6 +48,7 @@ public final class EstateService {
             default -> message = "알 수 없는 작업입니다.";
         }
         sendState(player, message);
+        sendClaims(player);
     }
 
     private static String sell(ServerPlayer player, EstateData data, Item item, long unitPrice, String label) {
@@ -80,6 +81,13 @@ public final class EstateService {
             if (stack.is(item)) total += stack.getCount();
         }
         return total;
+    }
+
+    public static void sendClaims(ServerPlayer player) {
+        String dimension = player.serverLevel().dimension().location().toString();
+        EstateData data = EstateData.get(player.getServer());
+        PacketDistributor.sendToPlayer(player,
+                new EstateClaimsPayload(dimension, data.ownedChunks(player.getUUID(), dimension)));
     }
 
     public static void sendState(ServerPlayer player, String message) {
