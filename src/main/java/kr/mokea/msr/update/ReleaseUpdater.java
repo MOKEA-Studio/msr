@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import kr.mokea.msr.MsrMod;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
@@ -24,33 +26,52 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@EventBusSubscriber(modid = MsrMod.MOD_ID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = MsrMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class ReleaseUpdater {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReleaseUpdater.class);
     private static final URI RELEASE_URI = URI.create("https://api.github.com/repos/MOKEA-Studio/msr/releases/latest");
     private static final Pattern VERSION = Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)$");
     private static final long MAX_JAR_SIZE = 100L * 1024 * 1024;
+    private static final AtomicBoolean CHECKING = new AtomicBoolean();
 
     private ReleaseUpdater() {}
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        Thread.ofVirtual().name("msr-release-updater").start(ReleaseUpdater::check);
+        startCheck(false);
     }
 
-    private static void check() {
+    public static void startCheck(boolean manual) {
+        if (!CHECKING.compareAndSet(false, true)) {
+            if (manual) tellPlayer("이미 업데이트를 확인하고 있습니다.");
+            return;
+        }
+        if (manual) tellPlayer("GitHub Release에서 업데이트를 확인하는 중입니다...");
+        Thread.ofVirtual().name("msr-release-updater").start(() -> {
+            try {
+                check(manual);
+            } finally {
+                CHECKING.set(false);
+            }
+        });
+    }
+
+    private static void check(boolean manual) {
         try {
             Path currentJar = ModList.get().getModFileById(MsrMod.MOD_ID).getFile().getFilePath().toRealPath();
             if (!Files.isRegularFile(currentJar) || !currentJar.getFileName().toString().endsWith(".jar")) {
                 LOGGER.info("Skipping automatic updates in a development environment");
+                if (manual) tellPlayer("개발 환경에서는 자동 업데이트를 사용할 수 없습니다.");
                 return;
             }
             Path modsDir = FMLPaths.MODSDIR.get().toRealPath();
             if (!currentJar.getParent().equals(modsDir)) {
                 LOGGER.info("Skipping automatic updates: mod JAR is outside the mods directory");
+                if (manual) tellPlayer("MSR JAR이 mods 폴더에 없어 업데이트할 수 없습니다.");
                 return;
             }
             String currentVersion = ModList.get().getModContainerById(MsrMod.MOD_ID).orElseThrow()
@@ -63,30 +84,38 @@ public final class ReleaseUpdater {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
                     LOGGER.warn("Release check returned HTTP {}", response.statusCode());
+                    if (manual) tellPlayer("업데이트 확인에 실패했습니다: HTTP " + response.statusCode());
                     return;
                 }
                 JsonObject release = JsonParser.parseString(response.body()).getAsJsonObject();
                 String latestVersion = release.get("tag_name").getAsString().replaceFirst("^v", "");
-                if (compareVersions(latestVersion, currentVersion) <= 0) return;
+                if (compareVersions(latestVersion, currentVersion) <= 0) {
+                    if (manual) tellPlayer("최신 버전입니다 (" + currentVersion + ").");
+                    return;
+                }
                 String assetName = "msr-" + latestVersion + ".jar";
                 JsonObject asset = findAsset(release.getAsJsonArray("assets"), assetName);
                 if (asset == null || !asset.has("digest")) {
                     LOGGER.warn("Release {} has no matching JAR with SHA-256 digest", latestVersion);
+                    if (manual) tellPlayer("Release JAR 또는 검증용 해시를 찾지 못했습니다.");
                     return;
                 }
                 String digest = asset.get("digest").getAsString();
                 if (!digest.matches("sha256:[0-9a-fA-F]{64}")) {
                     LOGGER.warn("Release {} has no valid SHA-256 digest", latestVersion);
+                    if (manual) tellPlayer("Release JAR의 해시가 올바르지 않습니다.");
                     return;
                 }
                 long size = asset.get("size").getAsLong();
                 if (size <= 0 || size > MAX_JAR_SIZE) {
                     LOGGER.warn("Release asset has invalid size: {}", size);
+                    if (manual) tellPlayer("Release JAR의 크기가 올바르지 않습니다.");
                     return;
                 }
                 URI downloadUri = URI.create(asset.get("browser_download_url").getAsString());
                 if (!"https".equals(downloadUri.getScheme()) || !"github.com".equals(downloadUri.getHost())) {
                     LOGGER.warn("Unexpected release download URL: {}", downloadUri);
+                    if (manual) tellPlayer("Release 다운로드 주소가 올바르지 않습니다.");
                     return;
                 }
                 Path stagingDir = FMLPaths.GAMEDIR.get().resolve(".msr-updates");
@@ -120,10 +149,20 @@ public final class ReleaseUpdater {
                 Path target = modsDir.resolve(assetName);
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> launchSwapper(currentJar, staged, target, stagingDir), "msr-update-swap"));
                 LOGGER.info("MSR {} downloaded and verified. It will be installed when Minecraft closes.", latestVersion);
+                tellPlayer("MSR " + latestVersion + " 다운로드 완료. 게임을 종료한 뒤 다시 실행하면 적용됩니다.");
             }
         } catch (Exception e) {
-            LOGGER.warn("Automatic update check failed: {}", e.toString());
+            LOGGER.warn("Update check failed: {}", e.toString());
+            if (manual) tellPlayer("업데이트에 실패했습니다. 로그를 확인해 주세요: " + e.getMessage());
         }
+    }
+
+    private static void tellPlayer(String message) {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.execute(() -> {
+            if (minecraft.player != null) minecraft.player.displayClientMessage(Component.literal("[MSR] " + message), false);
+            else LOGGER.info("[MSR] {}", message);
+        });
     }
 
     private static JsonObject findAsset(JsonArray assets, String name) {
