@@ -1,6 +1,7 @@
 package kr.mokea.msr.estate;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -19,7 +20,6 @@ public final class EstateScreen extends Screen {
     private String notice = "판매 버튼은 인벤토리의 해당 주괴를 모두 판매합니다.";
     private int lastChunkX = Integer.MIN_VALUE;
     private int lastChunkZ = Integer.MIN_VALUE;
-    private long releaseArmedUntil;
 
     public EstateScreen() {
         super(Component.literal("MSR Estates"));
@@ -99,10 +99,13 @@ public final class EstateScreen extends Screen {
         int actionY = mapY + 55;
         boolean unclaimed = state != null && state.ownerName().isEmpty();
         boolean mine = state != null && state.ownedByYou();
-        drawButton(g, x + 12, actionY, (inner - 8) / 2, 25, unclaimed ? "청크 구매 · 100,000원" : mine ? (System.currentTimeMillis() < releaseArmedUntil ? "다시 눌러 해제 확인" : "소유권 해제") : "구매 불가",
+        int actionW = (inner - 12) / 3;
+        drawButton(g, x + 12, actionY, actionW, 25, unclaimed ? "청크 구매 · 100,000원" : mine ? "소유권 해제" : "구매 불가",
                 mouseX, mouseY, (unclaimed || mine) ? CYAN : 0xFF506174, unclaimed || mine);
-        drawButton(g, x + 20 + (inner - 8) / 2, actionY, (inner - 8) / 2, 25, "소유 청크 지도",
+        drawButton(g, x + 18 + actionW, actionY, actionW, 25, "소유 청크 지도",
                 mouseX, mouseY, 0xFF5A91BC, true);
+        drawButton(g, x + 24 + actionW * 2, actionY, actionW, 25, "청크 관리",
+                mouseX, mouseY, 0xFF8AA6C2, true);
 
         int sellY = actionY + 31;
         int sellW = (inner - 12) / 3;
@@ -154,28 +157,35 @@ public final class EstateScreen extends Screen {
         int y = (height - h) / 2;
         int inner = w - 24;
         int actionY = y + 40 + 53 + 55;
-        int half = (inner - 8) / 2;
+        int actionW = (inner - 12) / 3;
         int sellY = actionY + 31;
         int sellW = (inner - 12) / 3;
-        if (inside(mx, my, x + 12, actionY, half, 25) && state != null) {
+        if (inside(mx, my, x + 12, actionY, actionW, 25) && state != null) {
             if (state.ownerName().isEmpty()) request("buy");
             else if (state.ownedByYou()) {
-                if (System.currentTimeMillis() < releaseArmedUntil) {
-                    releaseArmedUntil = 0;
-                    request("release");
-                } else {
-                    releaseArmedUntil = System.currentTimeMillis() + 5000;
-                    notice = "소유권 해제는 환불되지 않습니다. 5초 안에 다시 누르세요.";
-                    return true;
-                }
-            }
-        } else if (inside(mx, my, x + 20 + half, actionY, half, 25)) minecraft.setScreen(new EstateMapScreen(this));
+                confirmRelease();
+                return true;
+            } else return true;
+        } else if (inside(mx, my, x + 18 + actionW, actionY, actionW, 25)) minecraft.setScreen(new EstateMapScreen(this));
+        else if (inside(mx, my, x + 24 + actionW * 2, actionY, actionW, 25)) minecraft.setScreen(new EstateManageScreen(this));
         else if (inside(mx, my, x + 12, sellY, sellW, 25)) request("sell_iron");
         else if (inside(mx, my, x + 18 + sellW, sellY, sellW, 25)) request("sell_gold");
         else if (inside(mx, my, x + 24 + sellW * 2, sellY, sellW, 25)) request("sell_netherite");
         else return super.mouseClicked(mx, my, button);
         notice = "서버에서 처리하는 중...";
         return true;
+    }
+
+    private void confirmRelease() {
+        Screen previous = this;
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
+            minecraft.setScreen(previous);
+            if (confirmed) {
+                request("release");
+                notice = "서버에서 처리하는 중...";
+            }
+        }, Component.literal("소유권 해제"),
+                Component.literal("정말 이 청크의 소유권을 해제하시겠습니까? 환불되지 않으며 되돌릴 수 없습니다.")));
     }
 
     @Override

@@ -7,9 +7,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
  * Soft integration with Xaero's Minimap: marks owned chunks as waypoints on its real map.
@@ -33,6 +33,8 @@ public final class XaeroBridge {
     private static Method getX;
     private static Method getZ;
     private static Method getSymbol;
+    private static Method getName;
+    private static Method setName;
     private static Constructor<?> waypointConstructor;
     private static Object aquaColor;
 
@@ -68,6 +70,8 @@ public final class XaeroBridge {
             getX = waypointClass.getMethod("getX");
             getZ = waypointClass.getMethod("getZ");
             getSymbol = waypointClass.getMethod("getSymbol");
+            getName = waypointClass.getMethod("getName");
+            setName = waypointClass.getMethod("setName", String.class);
             waypointConstructor = waypointClass.getConstructor(
                     int.class, int.class, int.class, String.class, String.class, colorClass);
             aquaColor = colorClass.getField("AQUA").get(null);
@@ -97,25 +101,30 @@ public final class XaeroBridge {
         if (set == null) return;
         List<Object> waypoints = (List<Object>) getList.invoke(set);
 
-        Set<Long> owned = new HashSet<>();
-        for (EstateClaimsPayload.Chunk chunk : ClientClaimMap.chunks()) owned.add(chunkKey(chunk.x(), chunk.z()));
-
-        Set<Long> present = new HashSet<>();
+        Map<Long, EstateClaimsPayload.Chunk> remaining = new HashMap<>();
+        for (EstateClaimsPayload.Chunk chunk : ClientClaimMap.chunks()) remaining.put(chunkKey(chunk.x(), chunk.z()), chunk);
         for (Object waypoint : List.copyOf(waypoints)) {
             if (!SYMBOL.equals(getSymbol.invoke(waypoint))) continue;
             long key = chunkKey(((int) getX.invoke(waypoint)) >> 4, ((int) getZ.invoke(waypoint)) >> 4);
-            if (owned.contains(key)) present.add(key);
-            else waypoints.remove(waypoint);
+            EstateClaimsPayload.Chunk chunk = remaining.remove(key);
+            if (chunk == null) {
+                waypoints.remove(waypoint);
+                continue;
+            }
+            String expected = displayName(chunk);
+            if (!expected.equals(getName.invoke(waypoint))) setName.invoke(waypoint, expected);
         }
 
-        for (EstateClaimsPayload.Chunk chunk : ClientClaimMap.chunks()) {
-            long key = chunkKey(chunk.x(), chunk.z());
-            if (present.contains(key)) continue;
+        for (EstateClaimsPayload.Chunk chunk : remaining.values()) {
             int blockX = chunk.x() * 16 + 8;
             int blockZ = chunk.z() * 16 + 8;
             waypoints.add(waypointConstructor.newInstance(
-                    blockX, WAYPOINT_Y, blockZ, "MSR 소유 청크", SYMBOL, aquaColor));
+                    blockX, WAYPOINT_Y, blockZ, displayName(chunk), SYMBOL, aquaColor));
         }
+    }
+
+    private static String displayName(EstateClaimsPayload.Chunk chunk) {
+        return chunk.name().isEmpty() ? "MSR 소유 청크" : chunk.name();
     }
 
     private static long chunkKey(int x, int z) {

@@ -20,6 +20,11 @@ public final class EstateNetwork {
                 EstateService.handle(player, payload.action());
             }
         });
+        registrar.playToServer(EstateClaimActionPayload.TYPE, EstateClaimActionPayload.CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                EstateService.handleClaimAction(player, payload);
+            }
+        });
         if (FMLEnvironment.dist == Dist.CLIENT) {
             registrar.playToClient(EstateStatePayload.TYPE, EstateStatePayload.CODEC, ClientEstateState::receive);
             registrar.playToClient(EstateClaimsPayload.TYPE, EstateClaimsPayload.CODEC, (payload, context) -> {

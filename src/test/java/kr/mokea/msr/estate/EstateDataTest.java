@@ -18,8 +18,11 @@ class EstateDataTest {
         assertTrue(data.buy(alice, "Alice", "minecraft:overworld:2:-1", 0xFF112233));
         assertEquals(105_000, data.balance(alice));
         assertEquals(1, data.claimCount(alice));
-        assertEquals(new EstateClaimsPayload.Chunk(2, -1, 0xFF112233),
+        assertEquals(new EstateClaimsPayload.Chunk(2, -1, 0xFF112233, ""),
                 data.ownedChunks(alice, "minecraft:overworld").getFirst());
+        assertFalse(data.rename(bob, "minecraft:overworld:2:-1", "Bob's land"));
+        assertTrue(data.rename(alice, "minecraft:overworld:2:-1", "Alice's land"));
+        assertEquals("Alice's land", data.ownedChunks(alice, "minecraft:overworld").getFirst().name());
         assertFalse(data.buy(bob, "Bob", "minecraft:overworld:2:-1", 0));
         assertEquals(0, data.balance(bob));
 

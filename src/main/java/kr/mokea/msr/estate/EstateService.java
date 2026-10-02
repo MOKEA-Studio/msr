@@ -61,6 +61,20 @@ public final class EstateService {
         sendClaims(player);
     }
 
+    public static void handleClaimAction(ServerPlayer player, EstateClaimActionPayload payload) {
+        EstateData data = EstateData.get(player.getServer());
+        String key = payload.dimension() + ":" + payload.x() + ":" + payload.z();
+        String message = switch (payload.action()) {
+            case "release_at" -> data.release(player.getUUID(), key)
+                    ? "청크 소유권을 해제했습니다. 환불은 없습니다." : "내 청크가 아닙니다.";
+            case "rename" -> data.rename(player.getUUID(), key, payload.text())
+                    ? "청크 이름을 변경했습니다." : "내 청크가 아닙니다.";
+            default -> "알 수 없는 작업입니다.";
+        };
+        sendState(player, message);
+        sendClaims(player);
+    }
+
     private static String sell(ServerPlayer player, EstateData data, Item item, long unitPrice, String label) {
         int count = 0;
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
@@ -108,7 +122,7 @@ public final class EstateService {
                     data.updateColor(key(level, chunk.x(), chunk.z()), color);
                 }
             }
-            resolved.add(new EstateClaimsPayload.Chunk(chunk.x(), chunk.z(), color));
+            resolved.add(new EstateClaimsPayload.Chunk(chunk.x(), chunk.z(), color, chunk.name()));
         }
         PacketDistributor.sendToPlayer(player, new EstateClaimsPayload(dimension, resolved));
     }

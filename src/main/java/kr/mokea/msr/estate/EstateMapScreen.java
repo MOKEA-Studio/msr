@@ -1,8 +1,10 @@
 package kr.mokea.msr.estate;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Comparator;
@@ -19,6 +21,8 @@ public final class EstateMapScreen extends Screen {
     private int centerZ;
     private int selected = -1;
     private List<EstateClaimsPayload.Chunk> claims = List.of();
+    private List<EstateClaimsPayload.Chunk> lastSource = List.of();
+    private String notice = "";
 
     public EstateMapScreen(Screen previous) {
         super(Component.literal("MSR Land Map"));
@@ -35,17 +39,27 @@ public final class EstateMapScreen extends Screen {
 
     @Override
     public void tick() {
-        if (minecraft != null && minecraft.player != null && claims.size() != ClientClaimMap.chunks().size()) {
+        if (minecraft != null && minecraft.player != null && ClientClaimMap.chunks() != lastSource) {
             refreshClaims(minecraft.player.chunkPosition().x, minecraft.player.chunkPosition().z);
         }
     }
 
     private void refreshClaims(int px, int pz) {
+        EstateClaimsPayload.Chunk previouslySelected = selected >= 0 && selected < claims.size() ? claims.get(selected) : null;
         String dimension = minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString();
-        claims = (dimension.equals(ClientClaimMap.dimension()) ? ClientClaimMap.chunks() : List.<EstateClaimsPayload.Chunk>of()).stream()
+        lastSource = ClientClaimMap.chunks();
+        claims = (dimension.equals(ClientClaimMap.dimension()) ? lastSource : List.<EstateClaimsPayload.Chunk>of()).stream()
                 .sorted(Comparator.comparingLong(c -> Math.abs((long)c.x() - px) + Math.abs((long)c.z() - pz)))
                 .toList();
         selected = -1;
+        if (previouslySelected != null) {
+            for (int i = 0; i < claims.size(); i++) {
+                if (claims.get(i).x() == previouslySelected.x() && claims.get(i).z() == previouslySelected.z()) {
+                    selected = i;
+                    break;
+                }
+            }
+        }
     }
 
     private record Layout(int x, int y, int w, int h, int mapX, int mapY, int sideX, int sideW) {}
@@ -79,21 +93,43 @@ public final class EstateMapScreen extends Screen {
         g.drawString(font, "내 소유 청크", l.sideX + 9, l.y + 49, 0xFF9CAFC5);
         g.drawString(font, Integer.toString(claims.size()), l.sideX + 9, l.y + 67, 0xFF47D6CE);
         g.fill(l.sideX, l.y + 101, l.sideX + l.sideW, l.y + 147, 0xFF253247);
-        g.drawString(font, "지도 중심", l.sideX + 9, l.y + 109, 0xFF9CAFC5);
+        if (selected >= 0 && selected < claims.size()) {
+            var claim = claims.get(selected);
+            String label = claim.name().isEmpty() ? "이름 없는 땅" : claim.name();
+            g.drawString(font, trim(label, l.sideW - 18), l.sideX + 9, l.y + 109, 0xFF47D6CE);
+        } else {
+            g.drawString(font, "지도 중심", l.sideX + 9, l.y + 109, 0xFF9CAFC5);
+        }
         g.drawString(font, centerX + ", " + centerZ, l.sideX + 9, l.y + 126, 0xFFF5F7FB);
         button(g, l.sideX, l.y + 155, (l.sideW - 6) / 2, 22, "이전 땅", mouseX, mouseY);
         button(g, l.sideX + (l.sideW + 6) / 2, l.y + 155, (l.sideW - 6) / 2, 22, "다음 땅", mouseX, mouseY);
         button(g, l.sideX, l.y + 182, (l.sideW - 6) / 2, 22, "내 위치", mouseX, mouseY);
         button(g, l.sideX + (l.sideW + 6) / 2, l.y + 182, (l.sideW - 6) / 2, 22, "돌아가기", mouseX, mouseY);
-        g.drawString(font, "청록 다이아: 내 땅  ·  금색 십자: 내 위치  ·  방향키 이동", l.x + 12, l.y + l.h - 12, 0xFF9CAFC5);
+        button(g, l.sideX, l.y + 209, l.sideW, 22, "선택 땅 해제", mouseX, mouseY, selected >= 0);
+        String legend = notice.isEmpty() ? "청록 다이아: 내 땅  ·  금색 십자: 내 위치  ·  방향키 이동" : notice;
+        g.drawString(font, trim(legend, l.w - 24), l.x + 12, l.y + l.h - 12, notice.isEmpty() ? 0xFF9CAFC5 : 0xFFFFC86A);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
+    public void notice(String message) {
+        this.notice = message;
+    }
+
+    private String trim(String value, int maxWidth) {
+        if (font.width(value) <= maxWidth) return value;
+        while (!value.isEmpty() && font.width(value + "...") > maxWidth) value = value.substring(0, value.length() - 1);
+        return value + "...";
+    }
+
     private void button(GuiGraphics g, int x, int y, int w, int h, String label, int mx, int my) {
-        boolean hover = inside(mx, my, x, y, w, h);
-        g.fill(x, y, x + w, y + h, hover ? 0xFF47D6CE : 0xFF496782);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, hover ? 0xFF385367 : 0xFF294052);
-        g.drawCenteredString(font, label, x + w / 2, y + 7, 0xFFF5F7FB);
+        button(g, x, y, w, h, label, mx, my, true);
+    }
+
+    private void button(GuiGraphics g, int x, int y, int w, int h, String label, int mx, int my, boolean enabled) {
+        boolean hover = enabled && inside(mx, my, x, y, w, h);
+        g.fill(x, y, x + w, y + h, !enabled ? 0xFF3A4654 : hover ? 0xFF47D6CE : 0xFF496782);
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, !enabled ? 0xFF273341 : hover ? 0xFF385367 : 0xFF294052);
+        g.drawCenteredString(font, label, x + w / 2, y + 7, enabled ? 0xFFF5F7FB : 0xFF8294A5);
     }
 
     private boolean inside(double mx, double my, int x, int y, int w, int h) {
@@ -118,8 +154,22 @@ public final class EstateMapScreen extends Screen {
                 centerZ = minecraft.player.chunkPosition().z;
             }
         } else if (inside(mx, my, l.sideX + half + 6, l.y + 182, half, 22)) onClose();
+        else if (inside(mx, my, l.sideX, l.y + 209, l.sideW, 22) && selected >= 0) confirmRelease(claims.get(selected));
         else return super.mouseClicked(mx, my, button);
         return true;
+    }
+
+    private void confirmRelease(EstateClaimsPayload.Chunk chunk) {
+        Screen previous = this;
+        String dimension = ClientClaimMap.dimension();
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
+            minecraft.setScreen(previous);
+            if (confirmed) {
+                PacketDistributor.sendToServer(new EstateClaimActionPayload("release_at", dimension, chunk.x(), chunk.z(), ""));
+                notice = "서버에서 처리하는 중...";
+            }
+        }, Component.literal("소유권 해제"),
+                Component.literal("[" + chunk.x() + ", " + chunk.z() + "] 청크의 소유권을 해제하시겠습니까? 환불되지 않으며 되돌릴 수 없습니다.")));
     }
 
     private void focus(int step) {

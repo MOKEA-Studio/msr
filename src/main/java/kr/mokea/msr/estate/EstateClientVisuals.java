@@ -8,7 +8,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.HashMap;
@@ -45,21 +44,21 @@ public final class EstateClientVisuals {
             requestedInitialState = true;
             PacketDistributor.sendToServer(new EstateActionPayload("status"));
         }
-        if (++ticks % 10 != 0 || mc.isPaused()) return;
+        if (++ticks % 4 != 0 || mc.isPaused()) return;
         String dimension = mc.level.dimension().location().toString();
         int playerChunkX = mc.player.chunkPosition().x;
         int playerChunkZ = mc.player.chunkPosition().z;
         double y = mc.player.getY() + 0.65;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
                 int chunkX = playerChunkX + dx;
                 int chunkZ = playerChunkZ + dz;
                 if (!ClientClaimMap.owns(dimension, chunkX, chunkZ)) continue;
-                if (Math.abs(chunkX * 16 + 8 - mc.player.getX()) > 24
-                        || Math.abs(chunkZ * 16 + 8 - mc.player.getZ()) > 24) continue;
+                if (Math.abs(chunkX * 16 + 8 - mc.player.getX()) > 40
+                        || Math.abs(chunkZ * 16 + 8 - mc.player.getZ()) > 40) continue;
                 double x0 = chunkX * 16 + 0.5;
                 double z0 = chunkZ * 16 + 0.5;
-                for (int offset : new int[] {2, 6, 10, 14}) {
+                for (int offset = 1; offset < 16; offset += 2) {
                     particle(mc, x0 + offset, y, z0);
                     particle(mc, x0 + offset, y, z0 + 15);
                     particle(mc, x0, y, z0 + offset);
@@ -70,25 +69,8 @@ public final class EstateClientVisuals {
     }
 
     private static void particle(Minecraft mc, double x, double y, double z) {
-        mc.level.addParticle(ParticleTypes.PORTAL, x, y, z, 0, 0.02, 0);
-    }
-
-    @SubscribeEvent
-    public static void onHud(RenderGuiEvent.Post event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || mc.screen != null || mc.options.hideGui) return;
-        GuiGraphics g = event.getGuiGraphics();
-        String dimension = mc.level.dimension().location().toString();
-        if (!dimension.equals(ClientClaimMap.dimension())) return;
-        int cx = mc.player.chunkPosition().x;
-        int cz = mc.player.chunkPosition().z;
-        int x = g.guiWidth() - 83;
-        int y = 8;
-        g.fill(x, y, x + 75, y + 75, 0xC0111B29);
-        g.fill(x, y, x + 75, y + 1, 0xFF47D6CE);
-        g.drawCenteredString(mc.font, "MY CHUNKS", x + 37, y + 5, 0xFFEAF5F6);
-        drawGrid(g, x + 14, y + 18, 9, 5, dimension, cx, cz, cx, cz, false);
-        g.drawCenteredString(mc.font, cx + ", " + cz, x + 37, y + 65, 0xFFB6C8D9);
+        mc.level.addParticle(ParticleTypes.END_ROD, x, y, z, 0, 0.01, 0);
+        mc.level.addParticle(ParticleTypes.END_ROD, x, y + 0.5, z, 0, 0.01, 0);
     }
 
     public static void drawGrid(GuiGraphics g, int x, int y, int cells, int cellSize,

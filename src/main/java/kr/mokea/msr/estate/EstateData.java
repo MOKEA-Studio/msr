@@ -18,7 +18,7 @@ public final class EstateData extends SavedData {
     private final Map<UUID, Long> balances = new HashMap<>();
     private final Map<String, Claim> claims = new HashMap<>();
 
-    public record Claim(UUID owner, String ownerName, int color) {}
+    public record Claim(UUID owner, String ownerName, int color, String name) {}
 
     public static EstateData get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -39,7 +39,7 @@ public final class EstateData extends SavedData {
             CompoundTag entry = savedClaims.getCompound(i);
             try {
                 data.claims.put(entry.getString("Key"),
-                        new Claim(entry.getUUID("Owner"), entry.getString("Name"), entry.getInt("Color")));
+                        new Claim(entry.getUUID("Owner"), entry.getString("Name"), entry.getInt("Color"), entry.getString("Label")));
             } catch (IllegalArgumentException ignored) {}
         }
         return data;
@@ -62,6 +62,7 @@ public final class EstateData extends SavedData {
             entry.putUUID("Owner", claim.owner());
             entry.putString("Name", claim.ownerName());
             entry.putInt("Color", claim.color());
+            entry.putString("Label", claim.name());
             savedClaims.add(entry);
         });
         tag.put("Claims", savedClaims);
@@ -89,7 +90,7 @@ public final class EstateData extends SavedData {
                 result.add(new EstateClaimsPayload.Chunk(
                         Integer.parseInt(coordinates.substring(0, separator)),
                         Integer.parseInt(coordinates.substring(separator + 1)),
-                        entry.getValue().color()));
+                        entry.getValue().color(), entry.getValue().name()));
             } catch (NumberFormatException ignored) {}
         }
         return List.copyOf(result);
@@ -108,7 +109,7 @@ public final class EstateData extends SavedData {
     public boolean buy(UUID player, String name, String key, int color) {
         if (claims.containsKey(key) || balance(player) < CHUNK_PRICE) return false;
         balances.put(player, balance(player) - CHUNK_PRICE);
-        claims.put(key, new Claim(player, name, color));
+        claims.put(key, new Claim(player, name, color, ""));
         setDirty();
         return true;
     }
@@ -117,8 +118,17 @@ public final class EstateData extends SavedData {
     public void updateColor(String key, int color) {
         Claim claim = claims.get(key);
         if (claim == null || color == 0) return;
-        claims.put(key, new Claim(claim.owner(), claim.ownerName(), color));
+        claims.put(key, new Claim(claim.owner(), claim.ownerName(), color, claim.name()));
         setDirty();
+    }
+
+    public boolean rename(UUID player, String key, String name) {
+        Claim claim = claims.get(key);
+        if (claim == null || !claim.owner().equals(player)) return false;
+        String trimmed = name.length() > 24 ? name.substring(0, 24) : name;
+        claims.put(key, new Claim(claim.owner(), claim.ownerName(), claim.color(), trimmed));
+        setDirty();
+        return true;
     }
 
     public boolean release(UUID player, String key) {
