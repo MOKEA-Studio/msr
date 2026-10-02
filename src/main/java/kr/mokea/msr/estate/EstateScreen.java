@@ -63,8 +63,7 @@ public final class EstateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBlurredBackground(partialTick);
-        g.fill(0, 0, width, height, 0x2607121D);
+        g.fill(0, 0, width, height, 0x4207121D); // Keep the world sharp behind the dashboard.
         int w = Math.min(390, width - 18);
         int h = Math.min(226, height - 10);
         int x = (width - w) / 2;

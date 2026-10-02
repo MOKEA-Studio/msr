@@ -36,4 +36,6 @@ Other players cannot break, place, or interact with blocks in a claimed chunk. E
 
 ## Claim visibility
 
-The estate dashboard leaves the world sharp behind it. Its chunk tile and the small HUD minimap display real nearby owned chunks (cyan) and the player's chunk (gold). Open **소유 청크 지도** from the dashboard to view a larger 17×17 chunk map; use the arrow keys or click the grid to pan, and the previous/next buttons to jump between owned chunks in the current dimension. A claim-entry message appears in the action bar when entering someone's land. Purple portal particles trace the borders of your nearby owned chunks.
+The estate dashboard leaves the world sharp behind it. Its chunk tile and the small HUD minimap sample real vanilla map terrain colors around you and mark owned chunks with a cyan diamond and your own chunk with a gold cross. Open **소유 청크 지도** from the dashboard to view a larger 17×17 chunk map with a compass frame; use the arrow keys or click the grid to pan, and the previous/next buttons to jump between owned chunks in the current dimension. A claim-entry message appears in the action bar when entering someone's land. Purple portal particles trace the borders of your nearby owned chunks.
+
+If [Xaero's Minimap](https://modrinth.com/mod/xaeros-minimap) is installed, owned chunks are also added as waypoints on its real minimap and full map automatically. This integration reflects into Xaero's internal (unofficial) API, so it may silently stop working after a Xaero update; players without the mod are unaffected.

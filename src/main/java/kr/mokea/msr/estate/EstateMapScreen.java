@@ -64,9 +64,8 @@ public final class EstateMapScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.renderBlurredBackground(partialTick);
         Layout l = layout();
-        g.fill(0, 0, width, height, 0x3007121D);
+        g.fill(0, 0, width, height, 0x4207121D); // Keep the world sharp behind the dashboard.
         g.fill(l.x, l.y, l.x + l.w, l.y + l.h, 0xFF47D6CE);
         g.fill(l.x + 1, l.y + 1, l.x + l.w - 1, l.y + l.h - 1, 0xF017202D);
         g.fillGradient(l.x + 2, l.y + 2, l.x + l.w - 2, l.y + 33, 0xFF25384B, 0xFF1D2A3B);

@@ -22,7 +22,10 @@ public final class EstateNetwork {
         });
         if (FMLEnvironment.dist == Dist.CLIENT) {
             registrar.playToClient(EstateStatePayload.TYPE, EstateStatePayload.CODEC, ClientEstateState::receive);
-            registrar.playToClient(EstateClaimsPayload.TYPE, EstateClaimsPayload.CODEC, ClientClaimMap::receive);
+            registrar.playToClient(EstateClaimsPayload.TYPE, EstateClaimsPayload.CODEC, (payload, context) -> {
+                ClientClaimMap.receive(payload, context);
+                context.enqueueWork(XaeroBridge::sync);
+            });
         } else {
             registrar.playToClient(EstateStatePayload.TYPE, EstateStatePayload.CODEC, (payload, context) -> {});
             registrar.playToClient(EstateClaimsPayload.TYPE, EstateClaimsPayload.CODEC, (payload, context) -> {});
