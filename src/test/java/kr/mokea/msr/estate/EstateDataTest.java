@@ -15,12 +15,12 @@ class EstateDataTest {
         EstateData data = new EstateData();
         data.credit(alice, 205_000);
 
-        assertTrue(data.buy(alice, "Alice", "minecraft:overworld:2:-1"));
+        assertTrue(data.buy(alice, "Alice", "minecraft:overworld:2:-1", 0xFF112233));
         assertEquals(105_000, data.balance(alice));
         assertEquals(1, data.claimCount(alice));
-        assertEquals(new EstateClaimsPayload.Chunk(2, -1),
+        assertEquals(new EstateClaimsPayload.Chunk(2, -1, 0xFF112233),
                 data.ownedChunks(alice, "minecraft:overworld").getFirst());
-        assertFalse(data.buy(bob, "Bob", "minecraft:overworld:2:-1"));
+        assertFalse(data.buy(bob, "Bob", "minecraft:overworld:2:-1", 0));
         assertEquals(0, data.balance(bob));
 
         EstateData restored = EstateData.load(data.save(new CompoundTag(), null), null);
