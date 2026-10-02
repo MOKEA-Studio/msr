@@ -1,7 +1,11 @@
 package kr.mokea.msr.estate;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -10,6 +14,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public final class EstateService {
@@ -37,7 +43,11 @@ public final class EstateService {
             case "buy" -> {
                 if (data.claim(key) != null) message = "이미 소유자가 있는 청크입니다.";
                 else if (data.balance(player.getUUID()) < EstateData.CHUNK_PRICE) message = "잔액이 부족합니다.";
-                else if (data.buy(player.getUUID(), player.getGameProfile().getName(), key)) message = "청크를 구매했습니다.";
+                else {
+                    ChunkPos chunk = new ChunkPos(player.blockPosition());
+                    int color = TerrainColorSampler.sampleChunkColor(player.serverLevel(), chunk.x, chunk.z);
+                    if (data.buy(player.getUUID(), player.getGameProfile().getName(), key, color)) message = "청크를 구매했습니다.";
+                }
             }
             case "release" -> message = data.release(player.getUUID(), key)
                     ? "청크 소유권을 해제했습니다. 환불은 없습니다." : "내 청크가 아닙니다.";
@@ -86,8 +96,30 @@ public final class EstateService {
     public static void sendClaims(ServerPlayer player) {
         String dimension = player.serverLevel().dimension().location().toString();
         EstateData data = EstateData.get(player.getServer());
-        PacketDistributor.sendToPlayer(player,
-                new EstateClaimsPayload(dimension, data.ownedChunks(player.getUUID(), dimension)));
+        List<EstateClaimsPayload.Chunk> chunks = data.ownedChunks(player.getUUID(), dimension);
+        List<EstateClaimsPayload.Chunk> resolved = new ArrayList<>(chunks.size());
+        ServerLevel level = null;
+        for (EstateClaimsPayload.Chunk chunk : chunks) {
+            int color = chunk.color();
+            if (color == 0) {
+                if (level == null) level = levelFor(player.getServer(), dimension);
+                if (level != null && level.hasChunk(chunk.x(), chunk.z())) {
+                    color = TerrainColorSampler.sampleChunkColor(level, chunk.x(), chunk.z());
+                    data.updateColor(key(level, chunk.x(), chunk.z()), color);
+                }
+            }
+            resolved.add(new EstateClaimsPayload.Chunk(chunk.x(), chunk.z(), color));
+        }
+        PacketDistributor.sendToPlayer(player, new EstateClaimsPayload(dimension, resolved));
+    }
+
+    private static ServerLevel levelFor(MinecraftServer server, String dimension) {
+        ResourceLocation location = ResourceLocation.tryParse(dimension);
+        return location == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, location));
+    }
+
+    private static String key(ServerLevel level, int chunkX, int chunkZ) {
+        return level.dimension().location() + ":" + chunkX + ":" + chunkZ;
     }
 
     public static void sendState(ServerPlayer player, String message) {

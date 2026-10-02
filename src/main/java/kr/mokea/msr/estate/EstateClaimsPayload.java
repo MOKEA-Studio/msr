@@ -10,7 +10,8 @@ import java.util.List;
 
 public record EstateClaimsPayload(String dimension, List<Chunk> chunks) implements CustomPacketPayload {
     public static final int MAX_CHUNKS = 8192;
-    public record Chunk(int x, int z) {}
+    /** color is a packed ARGB terrain swatch computed server-side, or 0 while not yet sampled. */
+    public record Chunk(int x, int z, int color) {}
 
     public static final Type<EstateClaimsPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("msr", "estate_claims"));
@@ -21,6 +22,7 @@ public record EstateClaimsPayload(String dimension, List<Chunk> chunks) implemen
                 for (Chunk chunk : payload.chunks) {
                     buf.writeInt(chunk.x());
                     buf.writeInt(chunk.z());
+                    buf.writeInt(chunk.color());
                 }
             },
             buf -> {
@@ -28,7 +30,7 @@ public record EstateClaimsPayload(String dimension, List<Chunk> chunks) implemen
                 int size = buf.readVarInt();
                 if (size < 0 || size > MAX_CHUNKS) throw new IllegalArgumentException("Invalid claim count: " + size);
                 List<Chunk> chunks = new ArrayList<>(size);
-                for (int i = 0; i < size; i++) chunks.add(new Chunk(buf.readInt(), buf.readInt()));
+                for (int i = 0; i < size; i++) chunks.add(new Chunk(buf.readInt(), buf.readInt(), buf.readInt()));
                 return new EstateClaimsPayload(dimension, List.copyOf(chunks));
             });
 

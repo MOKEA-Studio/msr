@@ -8,8 +8,12 @@ import org.lwjgl.glfw.GLFW;
 import java.util.Comparator;
 import java.util.List;
 
-/** A real chunk map: cyan cells are owned land, the gold cell is the player. */
+/** A real chunk map: owned land is marked with cyan diamonds on sampled terrain colors, gold marks the player. */
 public final class EstateMapScreen extends Screen {
+    private static final int CELL = 9;
+    private static final int CELLS = 17;
+    private static final int GRID = CELL * CELLS;
+
     private final Screen previous;
     private int centerX;
     private int centerZ;
@@ -26,9 +30,7 @@ public final class EstateMapScreen extends Screen {
         if (minecraft == null || minecraft.player == null) return;
         centerX = minecraft.player.chunkPosition().x;
         centerZ = minecraft.player.chunkPosition().z;
-        int px = centerX;
-        int pz = centerZ;
-        refreshClaims(px, pz);
+        refreshClaims(centerX, centerZ);
     }
 
     @Override
@@ -46,39 +48,45 @@ public final class EstateMapScreen extends Screen {
         selected = -1;
     }
 
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0x4207121D);
-        int w = Math.min(390, width - 18);
-        int h = Math.min(226, height - 10);
+    private record Layout(int x, int y, int w, int h, int mapX, int mapY, int sideX, int sideW) {}
+
+    private Layout layout() {
+        int w = Math.min(430, width - 18);
+        int h = Math.min(248, height - 10);
         int x = (width - w) / 2;
         int y = (height - h) / 2;
-        g.fill(x, y, x + w, y + h, 0xFF47D6CE);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xF017202D);
-        g.fillGradient(x + 2, y + 2, x + w - 2, y + 33, 0xFF25384B, 0xFF1D2A3B);
-        g.drawString(font, "MSR  /  LAND MAP", x + 17, y + 14, 0xFFF5F7FB);
-        int mapX = x + 12;
-        int mapY = y + 40;
-        g.fill(mapX - 1, mapY - 1, mapX + 171, mapY + 171, 0xFF3F526B);
-        g.fill(mapX, mapY, mapX + 170, mapY + 170, 0xFF172435);
+        int mapX = x + 30;
+        int mapY = y + 54;
+        int sideX = mapX + GRID + 24;
+        int sideW = x + w - sideX - 12;
+        return new Layout(x, y, w, h, mapX, mapY, sideX, sideW);
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        this.renderBlurredBackground(partialTick);
+        Layout l = layout();
+        g.fill(0, 0, width, height, 0x3007121D);
+        g.fill(l.x, l.y, l.x + l.w, l.y + l.h, 0xFF47D6CE);
+        g.fill(l.x + 1, l.y + 1, l.x + l.w - 1, l.y + l.h - 1, 0xF017202D);
+        g.fillGradient(l.x + 2, l.y + 2, l.x + l.w - 2, l.y + 33, 0xFF25384B, 0xFF1D2A3B);
+        g.drawString(font, "MSR  /  LAND MAP", l.x + 17, l.y + 14, 0xFFF5F7FB);
         String dimension = minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString();
         int playerX = minecraft == null || minecraft.player == null ? centerX : minecraft.player.chunkPosition().x;
         int playerZ = minecraft == null || minecraft.player == null ? centerZ : minecraft.player.chunkPosition().z;
-        EstateClientVisuals.drawGrid(g, mapX, mapY, 17, 10, dimension, centerX, centerZ, playerX, playerZ);
+        EstateClientVisuals.drawGrid(g, l.mapX, l.mapY, CELLS, CELL, dimension, centerX, centerZ, playerX, playerZ, true);
 
-        int sideX = x + 195;
-        int sideW = w - 207;
-        g.fill(sideX, y + 40, sideX + sideW, y + 94, 0xFF253247);
-        g.drawString(font, "내 소유 청크", sideX + 9, y + 49, 0xFF9CAFC5);
-        g.drawString(font, Integer.toString(claims.size()), sideX + 9, y + 67, 0xFF47D6CE);
-        g.fill(sideX, y + 101, sideX + sideW, y + 147, 0xFF253247);
-        g.drawString(font, "지도 중심", sideX + 9, y + 109, 0xFF9CAFC5);
-        g.drawString(font, centerX + ", " + centerZ, sideX + 9, y + 126, 0xFFF5F7FB);
-        button(g, sideX, y + 155, (sideW - 6) / 2, 22, "이전 땅", mouseX, mouseY);
-        button(g, sideX + (sideW + 6) / 2, y + 155, (sideW - 6) / 2, 22, "다음 땅", mouseX, mouseY);
-        button(g, sideX, y + 182, (sideW - 6) / 2, 22, "내 위치", mouseX, mouseY);
-        button(g, sideX + (sideW + 6) / 2, y + 182, (sideW - 6) / 2, 22, "돌아가기", mouseX, mouseY);
-        g.drawString(font, "청록: 내 땅  ·  금색: 내 위치  ·  방향키 이동", x + 12, y + h - 12, 0xFF9CAFC5);
+        g.fill(l.sideX, l.y + 40, l.sideX + l.sideW, l.y + 94, 0xFF253247);
+        g.drawString(font, "내 소유 청크", l.sideX + 9, l.y + 49, 0xFF9CAFC5);
+        g.drawString(font, Integer.toString(claims.size()), l.sideX + 9, l.y + 67, 0xFF47D6CE);
+        g.fill(l.sideX, l.y + 101, l.sideX + l.sideW, l.y + 147, 0xFF253247);
+        g.drawString(font, "지도 중심", l.sideX + 9, l.y + 109, 0xFF9CAFC5);
+        g.drawString(font, centerX + ", " + centerZ, l.sideX + 9, l.y + 126, 0xFFF5F7FB);
+        button(g, l.sideX, l.y + 155, (l.sideW - 6) / 2, 22, "이전 땅", mouseX, mouseY);
+        button(g, l.sideX + (l.sideW + 6) / 2, l.y + 155, (l.sideW - 6) / 2, 22, "다음 땅", mouseX, mouseY);
+        button(g, l.sideX, l.y + 182, (l.sideW - 6) / 2, 22, "내 위치", mouseX, mouseY);
+        button(g, l.sideX + (l.sideW + 6) / 2, l.y + 182, (l.sideW - 6) / 2, 22, "돌아가기", mouseX, mouseY);
+        g.drawString(font, "청록 다이아: 내 땅  ·  금색 십자: 내 위치  ·  방향키 이동", l.x + 12, l.y + l.h - 12, 0xFF9CAFC5);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -96,28 +104,21 @@ public final class EstateMapScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button != 0) return super.mouseClicked(mx, my, button);
-        int w = Math.min(390, width - 18);
-        int h = Math.min(226, height - 10);
-        int x = (width - w) / 2;
-        int y = (height - h) / 2;
-        int mapX = x + 12;
-        int mapY = y + 40;
-        if (inside(mx, my, mapX, mapY, 170, 170)) {
-            centerX += (int)(mx - mapX) / 10 - 8;
-            centerZ += (int)(my - mapY) / 10 - 8;
+        Layout l = layout();
+        if (inside(mx, my, l.mapX, l.mapY, GRID, GRID)) {
+            centerX += (int)(mx - l.mapX) / CELL - CELLS / 2;
+            centerZ += (int)(my - l.mapY) / CELL - CELLS / 2;
             return true;
         }
-        int sideX = x + 195;
-        int sideW = w - 207;
-        int half = (sideW - 6) / 2;
-        if (inside(mx, my, sideX, y + 155, half, 22)) focus(-1);
-        else if (inside(mx, my, sideX + half + 6, y + 155, half, 22)) focus(1);
-        else if (inside(mx, my, sideX, y + 182, half, 22)) {
+        int half = (l.sideW - 6) / 2;
+        if (inside(mx, my, l.sideX, l.y + 155, half, 22)) focus(-1);
+        else if (inside(mx, my, l.sideX + half + 6, l.y + 155, half, 22)) focus(1);
+        else if (inside(mx, my, l.sideX, l.y + 182, half, 22)) {
             if (minecraft.player != null) {
                 centerX = minecraft.player.chunkPosition().x;
                 centerZ = minecraft.player.chunkPosition().z;
             }
-        } else if (inside(mx, my, sideX + half + 6, y + 182, half, 22)) onClose();
+        } else if (inside(mx, my, l.sideX + half + 6, l.y + 182, half, 22)) onClose();
         else return super.mouseClicked(mx, my, button);
         return true;
     }

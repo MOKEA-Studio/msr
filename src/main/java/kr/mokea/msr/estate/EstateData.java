@@ -18,7 +18,7 @@ public final class EstateData extends SavedData {
     private final Map<UUID, Long> balances = new HashMap<>();
     private final Map<String, Claim> claims = new HashMap<>();
 
-    public record Claim(UUID owner, String ownerName) {}
+    public record Claim(UUID owner, String ownerName, int color) {}
 
     public static EstateData get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -38,7 +38,8 @@ public final class EstateData extends SavedData {
         for (int i = 0; i < savedClaims.size(); i++) {
             CompoundTag entry = savedClaims.getCompound(i);
             try {
-                data.claims.put(entry.getString("Key"), new Claim(entry.getUUID("Owner"), entry.getString("Name")));
+                data.claims.put(entry.getString("Key"),
+                        new Claim(entry.getUUID("Owner"), entry.getString("Name"), entry.getInt("Color")));
             } catch (IllegalArgumentException ignored) {}
         }
         return data;
@@ -60,6 +61,7 @@ public final class EstateData extends SavedData {
             entry.putString("Key", key);
             entry.putUUID("Owner", claim.owner());
             entry.putString("Name", claim.ownerName());
+            entry.putInt("Color", claim.color());
             savedClaims.add(entry);
         });
         tag.put("Claims", savedClaims);
@@ -86,7 +88,8 @@ public final class EstateData extends SavedData {
             try {
                 result.add(new EstateClaimsPayload.Chunk(
                         Integer.parseInt(coordinates.substring(0, separator)),
-                        Integer.parseInt(coordinates.substring(separator + 1))));
+                        Integer.parseInt(coordinates.substring(separator + 1)),
+                        entry.getValue().color()));
             } catch (NumberFormatException ignored) {}
         }
         return List.copyOf(result);
@@ -102,12 +105,20 @@ public final class EstateData extends SavedData {
         setDirty();
     }
 
-    public boolean buy(UUID player, String name, String key) {
+    public boolean buy(UUID player, String name, String key, int color) {
         if (claims.containsKey(key) || balance(player) < CHUNK_PRICE) return false;
         balances.put(player, balance(player) - CHUNK_PRICE);
-        claims.put(key, new Claim(player, name));
+        claims.put(key, new Claim(player, name, color));
         setDirty();
         return true;
+    }
+
+    /** Fills in a terrain color sampled after the fact (e.g. for claims saved before colors existed). */
+    public void updateColor(String key, int color) {
+        Claim claim = claims.get(key);
+        if (claim == null || color == 0) return;
+        claims.put(key, new Claim(claim.owner(), claim.ownerName(), color));
+        setDirty();
     }
 
     public boolean release(UUID player, String key) {

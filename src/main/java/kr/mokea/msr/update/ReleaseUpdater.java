@@ -2,7 +2,6 @@ package kr.mokea.msr.update;
 
 import kr.mokea.msr.MsrMod;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -28,7 +27,7 @@ public final class ReleaseUpdater {
     private static void tellPlayer(String message) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.execute(() -> {
-            if (minecraft.player != null) minecraft.player.displayClientMessage(Component.literal("[MSR] " + message), false);
+            if (minecraft.player != null) minecraft.player.displayClientMessage(UpdateMessages.styled(message), false);
             else LOGGER.info("[MSR] {}", message);
         });
     }

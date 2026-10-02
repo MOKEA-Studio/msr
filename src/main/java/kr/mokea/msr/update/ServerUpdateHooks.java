@@ -1,7 +1,6 @@
 package kr.mokea.msr.update;
 
 import kr.mokea.msr.MsrMod;
-import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -31,7 +30,7 @@ public final class ServerUpdateHooks {
                         .executes(context -> {
                             var source = context.getSource();
                             UpdateService.startCheck(message -> source.getServer().execute(() ->
-                                    source.sendSuccess(() -> Component.literal("[MSR] " + message), true)));
+                                    source.sendSuccess(() -> UpdateMessages.styled(message), true)));
                             return 1;
                         })));
     }
